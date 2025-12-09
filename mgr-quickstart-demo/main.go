@@ -2,20 +2,36 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"time"
 
-	apppkg "mgr-quickstart-demo/app"
-	demo "mgr-quickstart-demo/demo"
+	"mgr-quickstart-demo/app"
+	"mgr-quickstart-demo/demo"
 
-	"code.byted.org/infcs/mgr/pkg/job"
+	log "code.byted.org/infcs/lib-log"
+	"code.byted.org/infcs/mgr/kitex_gen/infcs/mgr/framework/appservice"
 	"code.byted.org/infcs/mgr/pkg/mgr"
 	"code.byted.org/infcs/mgr/pkg/utils"
+	kitexserver "code.byted.org/kite/kitex/server"
 )
 
 func main() {
-	// 构造业务 App 实例并注入到 mgr.Option
-	app := apppkg.App{Name: "PGtest-Quickstart-App"}
+	// 0. 构造业务 App 实例并注入到 mgr.Option
+	app := app.App{Name: "PGtest-Quickstart-App"}
+
+	// 1. 初始化日志
+	ops := log.Ops{
+		Path:     "./mgr-demo.log",
+		Provider: log.StorageProvider(2),
+		Prefixs:  []string{"[mgr-demo]"},
+		LogLevel: int(log.TraceLevel),
+	}
+	logger := log.Init(ops)
+	log.StartLogger()
+	log.SetLevel(int(log.InfoLevel)) //默认Log级别Info
+	defer func() {
+		log.Flush()
+		log.Stop()
+	}()
 
 	opt := &mgr.Option{
 		// 可由命令行覆盖
@@ -24,14 +40,12 @@ func main() {
 		ZkAddress:      []string{},
 		SessionTimeout: 6 * time.Second, // 不指定时默认 6s
 
-		App:       app, // 注入业务 App 实例
-		GroupName: "PGtestMgrQuickstart",
-		FuncRegister: map[string]mgr.FuncRegister{
-			job.DefaultVersion: demo.RegisterJobFunc(),
-		},
-		RegisterFuncInNewMgr: true,
-		// 监听 :8888
-		Address: utils.NewNetAddr("tcp", ":8888"),
+		App:          app, // 注入业务 App 实例
+		GroupName:    "PGtestMgrQuickstart",
+		FuncRegister: demo.RegisterJobFunc(),
+		// 监听 :8889
+		Address: utils.NewNetAddr("tcp", ":8889"),
+		Logger:  logger,
 		// 指定数据库连接信息
 		//JobServiceOption: &mgr.JobServiceOption{
 		//	JobMode: service.JobModeLocal,
@@ -45,65 +59,23 @@ func main() {
 		//},
 	}
 
-	InitMgrOps(opt, os.Args)
-	fmt.Printf("Starting mgr on %s, Id=%s, Group=%s, Election=%v\n", ":8888", opt.Id, opt.GroupName, opt.ElectionFlag)
-	mgr.NewAndStart(opt)
-}
+	MgrIns := mgr.NewMgr(opt)
+	MgrIns.Start()
 
-var help = func() {
-	fmt.Println("Usage for pgtest mgr quickstart")
-	fmt.Println("====================================================")
-	fmt.Println("Single replica (no election):")
-	fmt.Println("  go run main.go --id s1 --electionFlag 0 --groupName MgrQuickstart --groupId 123")
-	fmt.Println()
-	fmt.Println("Three replicas with election (ZK required):")
-	fmt.Println("  go run main.go --id s1 --electionFlag 1 --zkAdress 10.227.31.8:2181 --groupName MgrQuickstart --groupId 123")
-	fmt.Println("  go run main.go --id s2 --electionFlag 1 --zkAdress 10.227.31.8:2181 --groupName MgrQuickstart --groupId 123")
-	fmt.Println("  go run main.go --id s3 --electionFlag 1 --zkAdress 10.227.31.8:2181 --groupName MgrQuickstart --groupId 123")
-	fmt.Println()
-	fmt.Println("Optional:")
-	fmt.Println("  --sessionTimeout 8  # seconds")
-}
+	// Start RPC server
+	AppImpl := &mgr.AppServiceImpl{
+		MgrIns: MgrIns,
+	}
 
-// InitMgrOps 解析命令行参数并填充 mgr.Option
-func InitMgrOps(ops *mgr.Option, args []string) {
-	if len(args) < 2 || args == nil {
-		help()
+	if opt.Address == nil {
+		opt.Address = utils.DefaultAddress
+	}
+	kLogger := &mgr.KLogger{Logger: logger}
+	svr := appservice.NewServer(AppImpl, kitexserver.WithServiceAddr(opt.Address))
+	err := svr.Run()
+	if err != nil {
+		fmt.Printf("Failed to start server: %v", err)
 		return
 	}
-
-	for i := 1; i < len(args); i++ {
-		key := args[i]
-		if i+1 >= len(args) {
-			break
-		}
-		val := args[i+1]
-
-		switch key {
-		case "--id":
-			ops.Id = val
-			i++
-		case "--electionFlag":
-			if val == "1" || val == "true" {
-				ops.ElectionFlag = true
-			} else {
-				ops.ElectionFlag = false
-			}
-			i++
-		case "--zkAdress", "--zkAddress":
-			ops.ZkAddress = append(ops.ZkAddress, val)
-			i++
-		case "--groupName":
-			ops.GroupName = val
-			i++
-		case "--sessionTimeout":
-			// 以秒为单位解析
-			if d, err := time.ParseDuration(val + "s"); err == nil {
-				ops.SessionTimeout = d
-			}
-			i++
-		default:
-			// ignore unknown
-		}
-	}
+	kLogger.Logger.Info("Starting mgr on %s, Id=%s, Group=%s, Election=%v\n", opt.Address, opt.Id, opt.GroupName, opt.ElectionFlag)
 }
