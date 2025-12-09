@@ -8,11 +8,16 @@ import (
 	"code.byted.org/infcs/mgr/pkg/job"
 )
 
+const (
+	DeployAction          = "Deploy"
+	GetDeployStatusAction = "GetDeployStatus"
+)
+
 // Register 返回 Action -> JobStateMachine 的映射，包含 Deploy 与 GetDeployStatus。
 func Register() map[string]job.JobStateMachine {
 	m := make(map[string]job.JobStateMachine)
-	m["Deploy"] = registerDeploy()
-	m["GetDeployStatus"] = registerGetDeployStatus()
+	m[DeployAction] = registerDeploy()
+	m[GetDeployStatusAction] = registerGetDeployStatus()
 	return m
 }
 
@@ -20,10 +25,18 @@ func Register() map[string]job.JobStateMachine {
 func registerDeploy() job.JobStateMachine {
 	jm := job.NewJobStateMachine()
 	jm.Async = true // 演示异步：PreStage 同步返回，Stage 异步执行
+	jm.AddPreStage("PreStage", deployPreStage)
 	jm.InitStage = "Stage1"
 	jm.AddStage("Stage1", deployStage1)
 	jm.AddStage("Stage2", deployStage2)
 	return jm
+}
+
+// deployPreStage 是一个同步执行的预处理阶段
+// 它的存在确保了框架会为异步 Job 生成并返回 JobID
+func deployPreStage(jo *job.Job) {
+	fmt.Println("[Deploy:PreStage] Running pre-flight checks... JobID will be generated and returned now.")
+	// 这里可以放置一些前置检查逻辑，例如参数校验
 }
 
 func deployStage1(jo *job.Job) {
@@ -77,5 +90,6 @@ func queryJobStatus(jo *job.Job) {
 	if resp.MgrResp.Ctx.CurStatus == server.JobStatus_Completed {
 		dst.Free()
 	}
+	// 标记完成
 	jo.SetExit(job.ExitSuccess)
 }

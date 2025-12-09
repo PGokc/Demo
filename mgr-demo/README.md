@@ -1,46 +1,43 @@
-# MGR 框架入门 Demo
+# Mgr 快速入门 Demo v2
 
-本项目是一个简化的演示，旨在阐明像 `code.byted.org/infcs/mgr` 这类服务管理框架的基础概念。
+本示例构建了一个最小可运行工程，演示如何基于字节内部的 `mgr` 框架注册 Action、编排阶段并启动服务，同时mock了一个客户端调用，方便初学者快速跑通。
 
-## 核心概念演示
+## 启动示例
 
-1.  **应用生命周期管理**: `framework/mgr.go` 文件模拟了核心应用，它负责管理所有已注册组件的启动和优雅关闭。
+- 单副本（不选主）：
+    - `go run ./main.go --id=demo-1 --electionFlag=false --groupName=MgrQuickStart`
+    - 端口：默认使用 `:8889`（`utils.DefaultAddress`）。
+- 三副本选主（ZK 选主示例）：
+    - 分别在三台或本地三个进程运行（ID 不同）：
+        - `go run ./main.go --id=demo-1 --electionFlag=true --zkAddress=zk1:2181,zk2:2181 --groupName=MgrQuickStart`
+        - `go run ./main.go --id=demo-2 --electionFlag=true --zkAddress=zk1:2181,zk2:2181 --groupName=MgrQuickStart`
+        - `go run ./main.go --id=demo-3 --electionFlag=true --zkAddress=zk1:2181,zk2:2181 --groupName=MgrQuickStart`
+    - 或使用多次传参：`--zkAddress=zk1:2181 --zkAddress=zk2:2181`
 
-2.  **组件化架构**: 整个应用由模块化的 `Component` 构建而成。`components/http_server.go` 是一个具体的例子。每个组件都包含 `Init`, `Start`, `Stop` 等方法。
+## Action 注册与阶段流转
 
-3.  **集中式注册**: 在 `main.go` 中，所有组件被注册到中央应用实例中，由它来统一控制。
+- 在 `demo/register.go` 中通过 `Register()` 返回 `map[string]job.JobStateMachine`，注册两个 Action：
+    - `Deploy`：两阶段
+        - `Stage1`：日志输出，演示读取 `job.Req.MgrReq.Ctx.Action` 与 `job.App` 信息，设置 `job.NextStage = "Stage2"`。
+        - `Stage2`：日志输出，调用 `job.SetExit(job.ExitSuccess)` 标记完成。
+    - `GetDeployStatus`：单阶段
+        - 读取 `job.Req.MgrReq.Ctx.GetJobStatusID`，使用 `jo.Jm.GetJob(jobID)` 查询本地队列中的 Job；不存在则视为完成。
+        - 将结果填充到 `job.Resp.MgrResp.Ctx`：`CurStatus`、`CurStage`、`GetJobStatusID`；若已完成则 `dst.Free()` 释放。
+- 关键要点：
+    - 阶段跳转使用 `job.NextStage`；结束使用 `job.SetExit(job.ExitSuccess)`。
+    - `JobStateMachine.Async=true` 表示异步模式：`PreStage` 同步返回，`Stage` 异步执行。
 
-## 项目结构
+## 同步与异步模式
 
-- `main.go`: 应用的入口。它负责初始化 `mgr` 应用并注册所有组件。
-- `go.mod`: Go 模块定义文件。
-- `README.md`: 本说明文档。
-- `framework/`: 此目录包含我们模拟的 `mgr` 框架。
-    - `mgr.go`: 模拟了核心的应用运行器。
-- `components/`: 此目录包含具体的业务逻辑组件。
-    - `http_server.go`: 一个运行简单 Gin Web 服务的示例组件。
+- 同步模式：`JobStateMachine.Async=false`，`Stage` 执行完才返回。
+- 异步模式：`JobStateMachine.Async=true`，`Stage` 异步执行，客户端可轮询 `GetDeployStatus`。
+- 轮询示例：
+    - 首次调用 `Deploy` 获取 `RequestID` 作为 JobID；随后构造请求：`req.MgrReq.Ctx.Action = "GetDeployStatus"`，`req.MgrReq.Ctx.GetJobStatusID = <JobID>`，循环调用 `cli.Action(ctx, req, callopt.WithHostPort("127.0.0.1:8889"))` 直到 `resp.MgrResp.Ctx.CurStatus == Completed`。
 
-## 如何运行
+## 目录结构
 
-1.  在终端中进入此项目目录：
-    ```bash
-    cd /Users/bytedance/Lark-Demo/mgr-demo
-    ```
+- `main.go`：解析 flag，装配 `mgr.Option`，启动服务。
+- `demo/register.go`：注册 `Deploy` 与 `GetDeployStatus` 的状态机，演示阶段流转与状态查询。
+- `app/app.go`：定义一个轻量的 `App` 作为 `job.AppIns` 注入，供阶段内读取。
+- `client/client.go`：Kitex 客户端调用示例骨架（构建标签 `example`）。
 
-2.  整理并下载依赖：
-    ```bash
-    go mod tidy
-    ```
-
-3.  运行应用：
-    ```bash
-    go run main.go
-    ```
-
-4.  您将看到日志输出，提示 HTTP 服务器已在 8080 端口启动。
-
-5.  打开一个新的终端，测试 API 端点：
-    ```bash
-    curl http://localhost:8080/hello
-    ```
-    您应该会收到响应: `{"message":"Hello from the MGR-powered component!"}`

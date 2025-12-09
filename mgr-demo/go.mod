@@ -1,10 +1,11 @@
-module mgr-demo
+module mgr-demo2
 
 go 1.20
 
 require (
 	code.byted.org/infcs/lib-log v0.0.11
 	code.byted.org/infcs/mgr v1.0.0
+	github.com/google/uuid v1.4.0
 )
 
 require (
