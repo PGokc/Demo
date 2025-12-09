@@ -1,0 +1,2 @@
+Info 2025-12-09 10:29:43,113 v1(7) server.go:77 10.92.185.212 - - default - 0 [[mgr-demo2]] msg="KITEX: server listen at addr=[::]:8889" 
+Error 2025-12-09 10:46:36,013 v1(7) default_server_handler.go:208 10.92.185.212 - - default - 0 [[mgr-demo2]] msg="KITEX: processing request error, remoteService=, remoteAddr=127.0.0.1:60449, error=*framework.AppServiceActionArgs read field 1 'req' error: Required field MgrReq is not set" 

@@ -1,0 +1,13 @@
+apiVersion: arch.lark.bytedance.com/v1alpha1
+kind: Operation
+metadata:
+  name: add-operation-demo
+  namespace: larkarch-operation
+  labels:
+    comp: demo
+    env: prod
+spec:
+  type: add
+  inputParams:
+    A: 10
+    B: 20

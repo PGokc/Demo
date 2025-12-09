@@ -1,0 +1,106 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.5.0
+  creationTimestamp: null
+  name: operations.arch.lark.bytedance.com
+  namespace: larkarch-operation
+spec:
+  group: arch.lark.bytedance.com
+  names:
+    kind: Operation
+    listKind: OperationList
+    plural: operations
+    shortNames:
+      - ops
+    singular: operation
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns:
+        - jsonPath: .spec.type
+          name: Type
+          type: string
+        - jsonPath: .status.phase
+          name: Status
+          type: string
+        - jsonPath: .status.reason
+          name: Reason
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: CreateTime
+          type: date
+        - jsonPath: .status.updateTime
+          name: UpdateTime
+          type: date
+      name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: Operation is the Schema for the Operations API
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: OperationSpec .
+              properties:
+                gcTime:
+                  description: GC相关，系统注入默认，清理过期的旧Operation
+                  type: string
+                inputParams:
+                  additionalProperties:
+                    anyOf:
+                      - type: integer
+                      - type: string
+                    x-kubernetes-int-or-string: true
+                  description: 输入参数
+                  type: object
+                type:
+                  description: 操作类型
+                  type: string
+              type: object
+            status:
+              properties:
+                logID:
+                  description: 日志id
+                  type: string
+                message:
+                  description: 失败的信息
+                  type: string
+                outputParams:
+                  additionalProperties:
+                    anyOf:
+                      - type: integer
+                      - type: string
+                    x-kubernetes-int-or-string: true
+                  description: 执行成功后的输出
+                  type: object
+                phase:
+                  description: 当前阶段
+                  type: string
+                reason:
+                  description: 失败的原因
+                  type: string
+                updateTime:
+                  description: 更新时间
+                  format: date-time
+                  type: string
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
