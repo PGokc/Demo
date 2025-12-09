@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"mgr-demo2/demo"
+	"mgr-demo/demo"
 	"time"
 
 	"code.byted.org/infcs/mgr/kitex_gen/infcs/mgr/framework"
@@ -23,7 +23,7 @@ GetDeployStatus Action：这是一个同步 Job，它的唯一作用就是根据
 */
 func mockRpcCallV2() {
 	// 1. 创建客户端
-	cli, err := appservice.NewClient("PGtest-Mgr-Demo2", client.WithHostPorts("127.0.0.1:8889"))
+	cli, err := appservice.NewClient("PGtest-Mgr-Demo", client.WithHostPorts("127.0.0.1:8889"))
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
@@ -37,10 +37,10 @@ func mockRpcCallV2() {
 		log.Fatalf("Started job but did not get a JobID")
 	}
 	log.Printf("✅ Successfully started an async 'Deploy' job, JobID: %s\n", jobID)
-	log.Println("----------------------------------------------------")
-	log.Println("🔍 Start polling for job status...")
 
 	// 3. 轮询 Job 状态直到其完成或失败
+	log.Println("----------------------------------------------------")
+	log.Println("🔍 Start polling for job status...")
 	pollJobStatus(cli, jobID)
 }
 
@@ -61,21 +61,19 @@ func startDeployJob(cli appservice.Client) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("RPC call failed: %w", err)
 	}
-
-	log.Printf("✅ Received initial response: %+v", resp)
-	log.Printf("  -> JobID: %s, Status: %s, Stage: %s\n",
-		resp.MgrResp.Ctx.GetJobStatusID, resp.MgrResp.Ctx.CurStatus, resp.MgrResp.Ctx.CurStage)
+	log.Printf("✅ Received mgr framework response: %+v", resp)
 
 	// 从初始响应中提取 GetJobStatusID，这是后续查询状态的凭证
-	return resp.MgrResp.Ctx.GetJobStatusID, nil
+	log.Printf("JobId:%s", resp.MgrResp.Ctx.RequestID)
+	return resp.MgrResp.Ctx.RequestID, nil
 }
 
 // pollJobStatus 循环查询指定 JobID 的状态，并打印 Stage 变化
 func pollJobStatus(cli appservice.Client, jobID string) {
 	// 轮询最多 10 秒
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(15 * time.Second)
 	// 每 500 毫秒查询一次
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -87,6 +85,8 @@ func pollJobStatus(cli appservice.Client, jobID string) {
 			req := &framework.Request{
 				MgrReq: &framework.MgrReq{
 					Ctx: &framework.JobContext{
+						Product:        framework.Product_RDS,
+						JobOps:         framework.JobOption_Init,
 						Action:         demo.GetDeployStatusAction, // 使用专用于查询状态的 Action
 						RequestID:      uuid.NewString(),
 						GetJobStatusID: jobID, // 传入要查询的 JobID
@@ -102,11 +102,11 @@ func pollJobStatus(cli appservice.Client, jobID string) {
 
 			status := resp.MgrResp.Ctx.CurStatus
 			stage := resp.MgrResp.Ctx.CurStage
-			log.Printf("  -> Polling... Current Status: [%s], Current Stage: [%s]", status, stage)
+			log.Printf("  -> Polling... JobID: [%s], Current Status: [%s], Current Stage: [%s]", jobID, status, stage)
 
 			// Job 完成或失败，则退出轮询
 			if status == framework.JobStatus_Completed || status == framework.JobStatus_Failed {
-				log.Printf("✅ Job finished with final status: [%s]", status)
+				log.Printf("✅ Job [%s] finished with final status: [%s]", jobID, status)
 				log.Println("----------------------------------------------------")
 				return
 			}

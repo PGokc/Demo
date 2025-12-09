@@ -9,8 +9,8 @@ import (
 	"code.byted.org/infcs/mgr/pkg/mgr"
 	"code.byted.org/infcs/mgr/pkg/utils"
 
-	"mgr-demo2/app"
-	"mgr-demo2/demo"
+	"mgr-demo/app"
+	"mgr-demo/demo"
 )
 
 // 支持 --zkAddress 多次或逗号分隔的解析
@@ -34,7 +34,7 @@ func (s *sliceFlag) Set(v string) error {
 func main() {
 	// 0. 解析命令行参数
 	var (
-		id           = flag.String("id", "demo-1", "节点唯一标识，用于 leader 选举")
+		id           = flag.String("id", "PGtest-Mgr-Instance-001", "节点唯一标识，用于 leader 选举")
 		electionFlag = flag.Bool("electionFlag", false, "是否启用 ZK 选主")
 		groupName    = flag.String("groupName", "MgrQuickStart", "产品分组名，用于构造选举目录和区分产品")
 		zkAddresses  sliceFlag
@@ -44,9 +44,9 @@ func main() {
 
 	// 1. 初始化日志
 	ops := log.Ops{
-		Path:     "./mgr-demo2.log",
+		Path:     "./mgr-demo.log",
 		Provider: log.StorageProvider(2),
-		Prefixs:  []string{"[mgr-demo2]"},
+		Prefixs:  []string{"[mgr-demo]"},
 		LogLevel: log.TraceLevel,
 	}
 	logger := log.Init(ops)
@@ -59,10 +59,10 @@ func main() {
 
 	// 2. 构造 AppIns 注入示例
 	appIns := &app.App{ // App 实现了 job.AppIns 的空接口
-		Name: "PGtest-Mgr-Demo2",
+		Name: "PGtest-Mgr-Demo",
 		Meta: map[string]string{
 			"env":  "dev",
-			"demo": "mgr-quickstart",
+			"name": "mgr-demo",
 		},
 	}
 
@@ -83,7 +83,7 @@ func main() {
 	}
 
 	// 5. 打印启动参数，便于学习观察
-	fmt.Printf("Start Mgr with params: id=%s electionFlag=%v groupName=%s zk=%v addr=%v\n",
+	fmt.Printf("Start PGtest Mgr Framework with params: id=%s electionFlag=%v groupName=%s zk=%v addr=%v\n",
 		opt.Id, opt.ElectionFlag, opt.GroupName, opt.ZkAddress, opt.Address)
 
 	// 6. 启动服务（包含选主、JobManager、Kitex Server）

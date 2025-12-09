@@ -1,0 +1,2 @@
+Info 2025-12-09 14:29:15,846 v1(7) server.go:77 10.92.185.212 - - default - 0 [[mgr-demo]] msg="KITEX: server listen at addr=[::]:8889" 
+Info 2025-12-09 14:29:33,814 v1(7) server.go:77 10.92.185.212 - - default - 0 [[mgr-demo]] msg="KITEX: server listen at addr=[::]:8889" 

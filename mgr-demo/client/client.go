@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"log"
-	"mgr-demo2/demo"
+	"mgr-demo/demo"
 	"time"
 
 	// 直接从 mgr 库中导入预生成的 api 包 (用于数据结构)

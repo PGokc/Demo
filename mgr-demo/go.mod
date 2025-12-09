@@ -1,4 +1,4 @@
-module mgr-demo2
+module mgr-demo
 
 go 1.20
 
