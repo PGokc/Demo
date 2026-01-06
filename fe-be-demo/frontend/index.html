@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>网站前后端调用 Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+<div class="min-h-screen flex flex-col">
+    <header class="bg-white shadow">
+        <div class="max-w-4xl mx-auto px-4 py-4">
+            <h1 class="text-2xl font-bold">网站前后端调用 Demo</h1>
+            <p class="text-sm text-slate-600 mt-1">
+                通过静态 HTML 页面调用本地 Go 后端 API（统一返回 { code, message, data }）。
+            </p>
+            <p class="text-xs text-amber-700 mt-1">
+                提示：如果你在浏览器中在线访问此页面（而不是本地 <span class="font-mono">file://</span>），
+                默认后端地址 <span class="font-mono">http://localhost:8080</span> 很可能无法直接访问。
+                请在本地启动后端，并将其暴露为可访问的 URL 后，在下方输入框中更新后端地址。
+            </p>
+        </div>
+    </header>
+
+    <main class="flex-1">
+        <div class="max-w-4xl mx-auto px-4 py-6 space-y-6">
+            <!-- 后端配置 -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+                <h2 class="text-lg font-semibold">后端服务配置</h2>
+                <div class="flex flex-col gap-2">
+                    <label for="backendUrl" class="text-sm text-slate-700">后端 Base URL</label>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input
+                                id="backendUrl"
+                                type="text"
+                                class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                                value="http://localhost:8080"
+                        />
+                        <button
+                                id="resetBackendBtn"
+                                class="px-3 py-2 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300 transition"
+                        >
+                            重置默认
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500">
+                        示例：<span class="font-mono">http://localhost:8080</span> 或你自己的远端地址（不需要包含 <span class="font-mono">/api</span> 前缀）。
+                    </p>
+                </div>
+            </section>
+
+            <!-- API 操作区域 -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4">
+                <h2 class="text-lg font-semibold">API 调用操作</h2>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <!-- 健康检查 -->
+                    <div class="border border-slate-100 rounded-lg p-3 space-y-2">
+                        <h3 class="font-medium text-sm">健康检查 <span class="font-mono text-xs">GET /api/health</span></h3>
+                        <p class="text-xs text-slate-500">检查后端服务是否正常，预期返回 { status: "ok" }。</p>
+                        <button
+                                id="btnHealth"
+                                class="mt-1 inline-flex items-center justify-center px-3 py-2 text-sm rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 transition"
+                        >
+                            检查健康
+                        </button>
+                    </div>
+
+                    <!-- Echo -->
+                    <div class="border border-slate-100 rounded-lg p-3 space-y-2">
+                        <h3 class="font-medium text-sm">Echo 接口 <span class="font-mono text-xs">POST /api/echo</span></h3>
+                        <p class="text-xs text-slate-500">发送一段 JSON，服务端原样返回并附加 server_time。</p>
+                        <textarea
+                                id="echoInput"
+                                rows="4"
+                                class="w-full mt-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >{"message": "hello from frontend"}</textarea>
+                        <div class="flex gap-2 mt-1">
+                            <button
+                                    id="btnEcho"
+                                    class="inline-flex items-center justify-center px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transition"
+                            >
+                                发送 Echo
+                            </button>
+                            <button
+                                    id="btnEchoClear"
+                                    class="inline-flex items-center justify-center px-3 py-2 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300 transition"
+                            >
+                                清空输入
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 查看 todos -->
+                    <div class="border border-slate-100 rounded-lg p-3 space-y-2">
+                        <h3 class="font-medium text-sm">查看 Todos <span class="font-mono text-xs">GET /api/todos</span></h3>
+                        <p class="text-xs text-slate-500">返回内存中的 todo 列表（id, title, done）。数据在后端重启后会清空。</p>
+                        <button
+                                id="btnGetTodos"
+                                class="mt-1 inline-flex items-center justify-center px-3 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 transition"
+                        >
+                            获取 Todos
+                        </button>
+                    </div>
+
+                    <!-- 新增 todo -->
+                    <div class="border border-slate-100 rounded-lg p-3 space-y-2">
+                        <h3 class="font-medium text-sm">新增 Todo <span class="font-mono text-xs">POST /api/todos</span></h3>
+                        <p class="text-xs text-slate-500">仅 title 为必填字段，done 默认为 false。</p>
+                        <label for="todoTitle" class="text-xs text-slate-600">Todo 标题</label>
+                        <input
+                                id="todoTitle"
+                                type="text"
+                                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="例如：学习前后端调用 Demo"
+                        />
+                        <button
+                                id="btnCreateTodo"
+                                class="mt-1 inline-flex items-center justify-center px-3 py-2 text-sm rounded-lg bg-orange-500 text-white hover:bg-orange-600 active:bg-orange-700 transition"
+                        >
+                            新增 Todo
+                        </button>
+                        <p id="todoError" class="text-xs text-red-600 mt-1 hidden"></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 结果展示 -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+                <h2 class="text-lg font-semibold">返回结果</h2>
+                <p id="resultMeta" class="text-xs text-slate-500">尚未发起请求。</p>
+                <pre
+                        id="resultView"
+                        class="bg-slate-900 text-slate-50 text-xs rounded-lg p-3 overflow-auto min-h-32 whitespace-pre-wrap"
+                ><code>// 等待请求...</code></pre>
+            </section>
+
+            <!-- 使用说明 -->
+            <section class="bg-slate-100 rounded-xl border border-slate-200 p-4 space-y-2 text-xs text-slate-700">
+                <h2 class="text-sm font-semibold">使用说明</h2>
+                <ol class="list-decimal list-inside space-y-1">
+                    <li>在本地终端中进入后端工程目录，执行 <span class="font-mono">go run main.go</span> 启动后端（默认监听 <span class="font-mono">:8080</span>）。</li>
+                    <li>本地调试前端：可以直接用浏览器打开本页面的 <span class="font-mono">index.html</span> 文件，或通过简单静态服务器（如 <span class="font-mono">npm serve</span> 或其他）在 <span class="font-mono">http://localhost:5173</span> 打开。</li>
+                    <li>若使用线上部署的静态页面，请确保将后端部署到公网可访问地址，并在顶部输入框中填写完整的 Base URL。</li>
+                </ol>
+            </section>
+        </div>
+    </main>
+
+    <footer class="border-t border-slate-200 bg-slate-50">
+        <div class="max-w-4xl mx-auto px-4 py-3 text-xs text-slate-500">
+            后端接口：GET <span class="font-mono">/api/health</span>，POST <span class="font-mono">/api/echo</span>，GET/POST <span class="font-mono">/api/todos</span>。
+            统一返回结构 <span class="font-mono">{ code, message, data }</span>。
+        </div>
+    </footer>
+</div>
+
+<script>
+    (function () {
+        const DEFAULT_BACKEND = "http://localhost:8080";
+        const TIMEOUT_MS = 5000;
+
+        function $(id) {
+            return document.getElementById(id);
+        }
+
+        function getBackendUrl() {
+            const raw = $("backendUrl").value.trim();
+            const base = raw || DEFAULT_BACKEND;
+            // 去掉末尾多余的 "/"
+            return base.replace(/\/+$/, "");
+        }
+
+        function buildUrl(path) {
+            return getBackendUrl() + path;
+        }
+
+        function updateMeta(text) {
+            const meta = $("resultMeta");
+            if (meta) meta.textContent = text;
+        }
+
+        function renderResult(obj) {
+            const pre = $("resultView");
+            if (!pre) return;
+            try {
+                pre.textContent = JSON.stringify(obj, null, 2);
+            } catch (e) {
+                pre.textContent = String(obj);
+            }
+        }
+
+        async function callApi(options) {
+            const { method, path, body } = options;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+            const url = buildUrl(path);
+            updateMeta(`请求 ${method} ${path} ...`);
+
+            const fetchOptions = {
+                method,
+                headers: {},
+                signal: controller.signal,
+            };
+
+            if (body !== undefined) {
+                fetchOptions.headers["Content-Type"] = "application/json";
+                fetchOptions.body = JSON.stringify(body);
+            }
+
+            try {
+                const res = await fetch(url, fetchOptions);
+                const text = await res.text();
+                let parsed;
+
+                try {
+                    parsed = text ? JSON.parse(text) : null;
+                } catch (e) {
+                    parsed = {
+                        parseError: "响应体不是合法 JSON",
+                        errorDetail: e.message,
+                        rawBody: text,
+                    };
+                }
+
+                const result = {
+                    ok: res.ok,
+                    status: res.status,
+                    url: res.url || url,
+                    headers: Object.fromEntries(res.headers.entries()),
+                    body: parsed,
+                };
+
+                updateMeta(`完成 ${method} ${path} - HTTP ${res.status}`);
+                renderResult(result);
+            } catch (err) {
+                let message;
+                if (err && err.name === "AbortError") {
+                    message = `请求超时（>${TIMEOUT_MS / 1000} 秒）`;
+                } else {
+                    message = `请求失败：${err}`;
+                }
+
+                updateMeta(message);
+                renderResult({
+                    error: message,
+                    hint:
+                        "请确认后端已启动且可访问。如果你在线访问此静态页面，浏览器可能不允许直接访问本地 http://localhost:8080，或被 CORS 限制。",
+                    backendBaseUrl: getBackendUrl(),
+                });
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+        function initEvents() {
+            $("resetBackendBtn").addEventListener("click", function () {
+                $("backendUrl").value = DEFAULT_BACKEND;
+                updateMeta("已重置为默认后端地址。");
+            });
+
+            $("btnHealth").addEventListener("click", function () {
+                callApi({ method: "GET", path: "/api/health" });
+            });
+
+            $("btnEcho").addEventListener("click", function () {
+                const input = $("echoInput").value.trim();
+                let payload;
+
+                if (!input) {
+                    payload = { message: "hello from frontend" };
+                } else {
+                    try {
+                        payload = JSON.parse(input);
+                    } catch (e) {
+                        updateMeta("Echo 输入不是合法 JSON，请检查后重试。");
+                        renderResult({ error: "invalid JSON in echo input", detail: e.message });
+                        return;
+                    }
+                }
+
+                callApi({ method: "POST", path: "/api/echo", body: payload });
+            });
+
+            $("btnEchoClear").addEventListener("click", function () {
+                $("echoInput").value = "";
+                updateMeta("已清空 Echo 输入。");
+            });
+
+            $("btnGetTodos").addEventListener("click", function () {
+                callApi({ method: "GET", path: "/api/todos" });
+            });
+
+            $("btnCreateTodo").addEventListener("click", function () {
+                const titleInput = $("todoTitle");
+                const errorEl = $("todoError");
+                const title = titleInput.value.trim();
+
+                if (!title) {
+                    errorEl.textContent = "title 为必填字段，请输入 todo 标题。";
+                    errorEl.classList.remove("hidden");
+                    return;
+                }
+
+                errorEl.classList.add("hidden");
+
+                callApi({
+                    method: "POST",
+                    path: "/api/todos",
+                    body: { title: title },
+                });
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", initEvents);
+    })();
+</script>
+</body>
+</html>
