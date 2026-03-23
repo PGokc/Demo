@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  # ── MySQL 主库 ──────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: xb_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "Root1234!"
+      MYSQL_DATABASE: shopdb
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: "App1234!"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./conf/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./scripts:/scripts:ro
+    ports:
+      - "3306:3306"
+    networks:
+      - xb_net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pRoot1234!"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── 权限初始化容器（一次性，chown backup 和 mysql 数据卷）──
+  init-perms:
+    image: busybox
+    container_name: xb_init
+    user: root
+    command: sh -c "chown -R 999:999 /backup && chown -R 999:999 /var/lib/mysql && echo 'permissions fixed'"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - backup_data:/backup
+    restart: "no"
+
+  # ── XtraBackup 工具容器 ──────────────────────────────────────
+  xtrabackup:
+    image: percona/percona-xtrabackup:8.0
+    container_name: xb_tool
+    entrypoint: ["tail", "-f", "/dev/null"]
+    user: "999:999"
+    environment:
+      MYSQL_PWD: "Root1234!"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - backup_data:/backup
+      - ./scripts:/scripts:ro
+    networks:
+      - xb_net
+    depends_on:
+      mysql:
+        condition: service_healthy
+      init-perms:
+        condition: service_completed_successfully
+
+volumes:
+  mysql_data:
+  backup_data:
+
+networks:
+  xb_net:
+    driver: bridge
